@@ -24,6 +24,11 @@ class Transformer(nn.Module):
                  num_decoder_layers=6, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False,
                  return_intermediate_dec=False):
+        """
+        :param d_model: 模型的输入和输出特征维度
+        :param normalize_before: 指定是否在每个子层之前应用层标准化
+        :param return_intermediate_dec: 指定是否返回解码器的中间层输出
+        """
         super().__init__()
 
         encoder_layer = TransformerEncoderLayer(d_model, nhead, dim_feedforward,
@@ -43,12 +48,15 @@ class Transformer(nn.Module):
         self.nhead = nhead
 
     def _reset_parameters(self):
+        """Xavier初始化有助于确保参数的初始值适合深度神经网络的训练，有助于加速收敛和训练的稳定性。这种初始化方法是常用的初始化策略之一"""
         for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
+            if p.dim() > 1:     # 排除偏置项（维度为1的参数）
+                nn.init.xavier_uniform_(p)  # 使用Xavier均匀分布进行初始化
 
     def forward(self, src, mask, query_embed, pos_embed, latent_input=None, proprio_input=None, additional_pos_embed=None):
         # TODO flatten only when input has H and W
+        # TODO: src (8,512,15,20), mask=None, query_embed = Embedding(100, 512), pos_embed (1,512,15,20)
+        # TODO: latent_input = z (8,512), proprio_input = qpos (8,512), additional_pos_embed = Embedding(2, 512)
         if len(src.shape) == 4: # has H and W
             # flatten NxCxHxW to HWxNxC
             bs, c, h, w = src.shape
@@ -70,7 +78,7 @@ class Transformer(nn.Module):
             pos_embed = pos_embed.unsqueeze(1).repeat(1, bs, 1)
             query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
 
-        tgt = torch.zeros_like(query_embed) # (100, 8, 512)
+        tgt = torch.zeros_like(query_embed) # 创建一个与query_embed具有相同形状的全零张量作为目标 (100, 8, 512)
         memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)    # (302, 8, 512)
         hs = self.decoder(tgt, memory, memory_key_padding_mask=mask,
                           pos=pos_embed, query_pos=query_embed)     # (7, 100, 8, 512)
@@ -123,7 +131,8 @@ class TransformerDecoder(nn.Module):
         intermediate = []
 
         for layer in self.layers:
-            output = layer(output, memory, tgt_mask=tgt_mask,
+            output = layer(output, memory,
+                           tgt_mask=tgt_mask,
                            memory_mask=memory_mask,
                            tgt_key_padding_mask=tgt_key_padding_mask,
                            memory_key_padding_mask=memory_key_padding_mask,
