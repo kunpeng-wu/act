@@ -97,7 +97,8 @@ class Backbone(BackboneBase):
                  dilation: bool):
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],
-            pretrained=is_main_process(), norm_layer=FrozenBatchNorm2d)  # pretrained avoid downloading the same file multiple times # TODO do we want frozen batch_norm??
+            pretrained=is_main_process(),
+            norm_layer=FrozenBatchNorm2d)
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         super().__init__(backbone, train_backbone, num_channels, return_interm_layers)
 
@@ -111,7 +112,7 @@ class Joiner(nn.Sequential):
         out: List[NestedTensor] = []
         pos = []
         for name, x in xs.items():
-            out.append(x)   # [(8,512,15,20)]
+            out.append(x)
             # position encoding
             pos.append(self[1](x).to(x.dtype))  # [(1,512,15,20)]
 
