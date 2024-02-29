@@ -191,8 +191,8 @@ class CNNMLP(nn.Module):
         flattened_features = []
         for cam_feature in all_cam_features:
             flattened_features.append(cam_feature.reshape([bs, -1]))
-        flattened_features = torch.cat(flattened_features, axis=1) # 768 each
-        features = torch.cat([flattened_features, qpos], axis=1) # qpos: 14
+        flattened_features = torch.cat(flattened_features, dim=1) # 768 each
+        features = torch.cat([flattened_features, qpos], dim=1) # qpos: 14
         a_hat = self.mlp(features)
         return a_hat
 
