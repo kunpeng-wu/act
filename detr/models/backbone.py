@@ -19,7 +19,6 @@ from detr.util.misc import NestedTensor, is_main_process
 from .position_encoding import build_position_encoding
 
 import IPython
-
 e = IPython.embed
 
 
@@ -30,6 +29,8 @@ class FrozenBatchNorm2d(torch.nn.Module):
     Copy-paste from torchvision.misc.ops with added eps before rqsrt,
     without which any other policy_models than torchvision.policy_models.resnet[18,34,50,101]
     produce nans.
+    实现了冻结的批量归一化操作，其中权重和偏差是固定的，而均值和方差是从运行中累积的，用于规范化输入数据。
+    这对于某些模型（如ResNet系列）的性能很重要，以避免产生NaN值
     """
 
     def __init__(self, n):
@@ -96,13 +97,15 @@ class Backbone(BackboneBase):
                  return_interm_layers: bool,
                  dilation: bool):
         backbone = getattr(torchvision.models, name)(
-            replace_stride_with_dilation=[False, False, dilation],
-            pretrained=is_main_process(), norm_layer=FrozenBatchNorm2d)  # pretrained # TODO do we want frozen batch_norm??
+            replace_stride_with_dilation=[False, False, dilation],  # 是否替换ResNet的部分stride为dilation卷积
+            pretrained=is_main_process(),   # pretrained 只有主进程加载预训练权重
+            norm_layer=FrozenBatchNorm2d)   # 指定使用FrozenBatchNorm2d作为BatchNorm的层 TODO do we want frozen batch_norm??
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         super().__init__(backbone, train_backbone, num_channels, return_interm_layers)
 
 
 class Joiner(nn.Sequential):
+    """用于将骨干网络的输出特征与位置编码相结合"""
     def __init__(self, backbone, position_embedding):
         super().__init__(backbone, position_embedding)
 
@@ -110,7 +113,7 @@ class Joiner(nn.Sequential):
         xs = self[0](tensor_list)
         out: List[NestedTensor] = []
         pos = []
-        for name, x in xs.items():
+        for name, x in xs.items():  # 遍历骨干网络的输出字典，其中name是特征图的名称，x是对应的特征图
             out.append(x)
             # position encoding
             pos.append(self[1](x).to(x.dtype))
@@ -120,8 +123,8 @@ class Joiner(nn.Sequential):
 
 def build_backbone(args):
     position_embedding = build_position_encoding(args)
-    train_backbone = args.lr_backbone > 0
-    return_interm_layers = args.masks
+    train_backbone = args.lr_backbone > 0   # 根据lr_backbone的值，判断是否训练骨干网络。如果lr_backbone大于零，则表示需要对骨干网络进行微调
+    return_interm_layers = args.masks   # 根据masks的值，判断是否需要返回骨干网络的中间层特征。如果masks为True，则表示需要返回中间层特征，否则只返回最后一层特征
     backbone = Backbone(args.backbone, train_backbone, return_interm_layers, args.dilation)
     model = Joiner(backbone, position_embedding)
     model.num_channels = backbone.num_channels
