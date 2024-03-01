@@ -110,11 +110,12 @@ class Joiner(nn.Sequential):
         super().__init__(backbone, position_embedding)
 
     def forward(self, tensor_list: NestedTensor):
+        # input image:(8,3,480,640)
         xs = self[0](tensor_list)   # {'0':(8,512,15,20)}
         out: List[NestedTensor] = []
         pos = []
         for name, x in xs.items():  # 遍历骨干网络的输出字典，其中name是特征图的名称，x是对应的特征图
-            out.append(x)
+            out.append(x)   # [(8,512,15,20)]
             # position encoding
             pos.append(self[1](x).to(x.dtype))  # [(1,512,15,20)]
 

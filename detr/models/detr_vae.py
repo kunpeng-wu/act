@@ -96,7 +96,7 @@ class DETRVAE(nn.Module):
             encoder_input = encoder_input.permute(1, 0, 2) # (seq+2, bs, hidden_dim) (102,8,512)
             # do not mask cls token
             cls_joint_is_pad = torch.full((bs, 2), False).to(qpos.device) # False: not a padding (8,2)
-            is_pad = torch.cat([cls_joint_is_pad, is_pad], dim=1)  # (bs, seq+1) (8,102)
+            is_pad = torch.cat([cls_joint_is_pad, is_pad], dim=1)  # (bs, seq+2) (8,102)
             # obtain position embedding
             pos_embed = self.pos_table.clone().detach() # (1, seq+2, hidden_dim) (1,102,512)
             pos_embed = pos_embed.permute(1, 0, 2)  # (seq+2, 1, hidden_dim) (102,1,512)
@@ -118,11 +118,12 @@ class DETRVAE(nn.Module):
             all_cam_features = []
             all_cam_pos = []
             for cam_id, cam_name in enumerate(self.camera_names):
-                features, pos = self.backbones[0](image[:, cam_id]) # HARDCODED
-                features = features[0] # take the last layer feature (8,512,15,20)
+                ## TODO: resnet -> features, pos encoding -> pos
+                features, pos = self.backbones[0](image[:, cam_id]) # HARDCODED Joiner(image[:, cam_id])
+                features = features[0]  # take the last layer feature (8,512,15,20)
                 pos = pos[0]    # (1,512,15,20)
                 all_cam_features.append(self.input_proj(features))  # [(8,512,15,20)]
-                all_cam_pos.append(pos) # [(1,512,15,20)]
+                all_cam_pos.append(pos)     # [(1,512,15,20)]
             # proprioception features
             proprio_input = self.input_proj_robot_state(qpos)   # (8,14) -> (8,512)
             # fold camera dimension into width dimension

@@ -55,17 +55,17 @@ class Transformer(nn.Module):
 
     def forward(self, src, mask, query_embed, pos_embed, latent_input=None, proprio_input=None, additional_pos_embed=None):
         # TODO flatten only when input has H and W
-        # TODO: src (8,512,15,20), mask=None, query_embed = Embedding(100, 512), pos_embed (1,512,15,20)
-        # TODO: latent_input = z (8,512), proprio_input = qpos (8,512), additional_pos_embed = Embedding(2, 512)
+        # TODO: src=feature map (8,512,15,20), mask=None, query_embed=Embedding(100, 512), pos_embed=position encoding (1,512,15,20)
+        # TODO: latent_input=z (8,512), proprio_input=qpos (8,512), additional_pos_embed=Embedding(2, 512)
         if len(src.shape) == 4: # has H and W
             # flatten NxCxHxW to HWxNxC
             bs, c, h, w = src.shape
             src = src.flatten(2).permute(2, 0, 1)   # (8, 512, 15, 20) -> (8, 512, 300) -> (300, 8, 512) (hw, bs, c)
             pos_embed = pos_embed.flatten(2).permute(2, 0, 1).repeat(1, bs, 1)  # (1,512,15,20) -> (1,512,300) -> (300,1,512) -> (300,8,512)
-            query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1) # (100, 512) -> (100, 1, 512) -> (100, 8, 512)
+            query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)     # (100, 512) -> (100, 1, 512) -> (100, 8, 512)
             # mask = mask.flatten(1)
 
-            additional_pos_embed = additional_pos_embed.unsqueeze(1).repeat(1, bs, 1) # (seq, bs, hidden_dim) (2, 8, 512)
+            additional_pos_embed = additional_pos_embed.unsqueeze(1).repeat(1, bs, 1)   # (seq, bs, hidden_dim) (2,512) -> (2,1,512) -> (2,8,512)
             pos_embed = torch.cat([additional_pos_embed, pos_embed], dim=0)     # (302, 8, 512)
 
             addition_input = torch.stack([latent_input, proprio_input], dim=0)  # (2, 8, 512)
@@ -244,7 +244,7 @@ class TransformerDecoderLayer(nn.Module):
                      memory_key_padding_mask: Optional[Tensor] = None,
                      pos: Optional[Tensor] = None,
                      query_pos: Optional[Tensor] = None):
-        q = k = self.with_pos_embed(tgt, query_pos)
+        q = k = self.with_pos_embed(tgt, query_pos)     # (100,8,512)
         tgt2 = self.self_attn(q, k, value=tgt, attn_mask=tgt_mask,
                               key_padding_mask=tgt_key_padding_mask)[0]
         tgt = tgt + self.dropout1(tgt2)
